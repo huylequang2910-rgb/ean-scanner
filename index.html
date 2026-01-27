@@ -3,26 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Quét EAN</title>
+<title>Kiểm tra giá sản phẩm BNSG</title>
 
 <style>
 body {
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   padding: 16px;
 }
 .price {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: bold;
   color: #d32f2f;
+  margin-top: 6px;
+}
+input, button {
+  padding: 10px;
+  font-size: 16px;
+}
+button {
+  margin-left: 6px;
 }
 </style>
 </head>
 
 <body>
 
-<h2>Quét / nhập mã EAN13</h2>
+<h2>Kiểm tra giá sản phẩm BNSG</h2>
 
-<!-- CÁCH 1: CAMERA (ỔN ĐỊNH NHẤT) -->
+<!-- CÁCH 1: CAMERA -->
 <input
   type="file"
   accept="image/*"
@@ -35,10 +43,10 @@ body {
 <!-- CÁCH 2: NHẬP TAY -->
 <input
   id="manual"
-  placeholder="Nhập EAN13"
+  placeholder="Nhập mã vạch"
   inputmode="numeric"
 />
-<button onclick="lookupManual()">Tra thủ công</button>
+<button onclick="lookupManual()">Kiểm tra giá bán</button>
 
 <hr>
 
@@ -48,14 +56,26 @@ body {
 <div id="msg"></div>
 
 <script src="https://unpkg.com/@zxing/library@latest"></script>
+
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbw-Qhp1D8B28HFUoRAPYvh-56i2_nIckGB7SuggxmTjWyVJNjzlB70EQ6mUbZwGem_bWw/exec";
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbw-Qhp1D8B28HFUoRAPYvh-56i2_nIckGB7SuggxmTjWyVJNjzlB70EQ6mUbZwGem_bWw/exec";
+
+const input = document.getElementById("manual");
 
 function formatVND(v) {
   return Number(v).toLocaleString("vi-VN") + " VNĐ";
 }
 
-// QUÉT TỪ ẢNH (camera)
+// 🔊 Beep khi lookup thành công
+function beep() {
+  const audio = new Audio(
+    "https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg"
+  );
+  audio.play();
+}
+
+// 🚀 QUÉT TỪ ẢNH
 async function scanImage(file) {
   const reader = new ZXing.BrowserBarcodeReader();
   const img = URL.createObjectURL(file);
@@ -64,30 +84,56 @@ async function scanImage(file) {
     const result = await reader.decodeFromImageUrl(img);
     lookup(result.text);
   } catch (e) {
-    document.getElementById("msg").innerText = "Không đọc được mã";
+    document.getElementById("msg").innerText =
+      "❌ Không đọc được mã – vui lòng nhập tay";
   }
 }
 
-// NHẬP TAY
+// ⌨️ NHẬP TAY (NÚT)
 function lookupManual() {
-  const ean = document.getElementById("manual").value.trim();
-  if (/^\d{13}$/.test(ean)) lookup(ean);
+  const ean = input.value.trim();
+  if (/^\d{13}$/.test(ean)) {
+    lookup(ean);
+  }
 }
 
+// ⌨️ ENTER / GO → lookup luôn
+input.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    lookupManual();
+  }
+});
+
+// 🎯 LOOKUP CHÍNH
 async function lookup(ean) {
   document.getElementById("ean").innerText = ean;
+  document.getElementById("msg").innerText = "Đang kiểm tra...";
 
-  const res = await fetch(API_URL + "?ean=" + ean);
-  const data = await res.json();
+  try {
+    const res = await fetch(API_URL + "?ean=" + ean);
+    const data = await res.json();
 
-  if (data.ok) {
-    document.getElementById("name").innerText = data.name;
-    document.getElementById("price").innerText = formatVND(data.price);
-    document.getElementById("msg").innerText = "✔️ OK";
-  } else {
-    document.getElementById("msg").innerText = "❌ Không tìm thấy";
+    if (data.ok) {
+      document.getElementById("name").innerText = data.name;
+      document.getElementById("price").innerText = formatVND(data.price);
+      document.getElementById("msg").innerText = "✔️ Đã tìm thấy";
+      beep();
+    } else {
+      document.getElementById("name").innerText = "-";
+      document.getElementById("price").innerText = "-";
+      document.getElementById("msg").innerText = "❌ Không tìm thấy";
+    }
+  } catch (err) {
+    document.getElementById("msg").innerText = "⚠️ Lỗi kết nối";
   }
+
+  // ⚡ UX nhanh: tự clear + focus
+  input.value = "";
+  input.focus();
 }
+
+// focus sẵn khi mở trang
+input.focus();
 </script>
 
 </body>
